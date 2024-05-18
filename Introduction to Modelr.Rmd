@@ -1,0 +1,172 @@
+---
+author: Michael Raffanti
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, fig.height = 4)
+library(tidyverse)
+library(lubridate)
+library(scales)
+library(modelr)
+source("../../scripts/viridis.R")
+source("../../scripts/ggprob.R")
+```
+
+\renewcommand{\prob}{\mathsf{P}}
+\newcommand{\E}{\mathsf{E}}
+\newcommand{\Var}{\mathsf{Var}}
+\newcommand{\SD}{\mathsf{SD}}
+\newcommand{\SE}{\mathsf{SE}}
+
+## Homework Assignment 10
+
+#### Due Friday, December 2, 2022, at 11:59 PM
+
+## Problems
+
+The *dugong.csv* data set contains data on 27 dugongs, which are marine mammals.  Since we cannot ask a dugong how old it is (well, we can ask, but we wouldn't likely get a clear answer!), its age needs to be estimated by other factors.  The variables in *dugong.csv* are length (in meters) and age (in years).  
+
+Suppose we are interested in using the length of a dugong to predict its age.  We can fit a regression model for this!
+
+Credit:  The *dugong.csv* file is from Data8 at UC-Berkeley.
+
+
+### 1
+
+- Read in the *dugong.csv* data set.  
+-  Create a scatter plot with length on the x-axis and age on the y-axis; be sure to add descriptive axis labels (include units of measurement) and a title.  
+-  Using `geom_smooth()`, add the least-squares line to your plot.
+
+```{r}
+dugong = read_csv("../../data/dugong.csv")
+
+ggplot(dugong, aes(x = Length, y = Age)) + geom_point() + xlab("Length (meters)") + ylab("Age (years)") + ggtitle("Length vs. Age of Dugongs") + geom_smooth(se = FALSE, method = "lm") + theme_bw()
+```
+
+
+### 2
+
+- Using the dugong data, calculate the sample means, sample standard deviations, and correlation coefficient of the variables age and length.
+- Using formulas from lecture, calculate the slope and intercept of the least squares regressions line to predict age with length.
+
+
+```{r}
+x = dugong %>% pull(Length)
+y = dugong %>% pull(Age)
+
+dugong_calc = dugong %>% summarise(xbar = mean(Length), ybar = mean(Age), sdx = sd(Length), sdy = sd(Age), r = cor(x, y), slope = r*sdy/sdx, intercept = ybar - slope*xbar)
+
+dugong_calc
+```
+
+
+### 3
+
+- Use the dugong data and the functions `lm()` and `coef()` to calculate the slope and intercept of the least squares regression line of age against length (use length to predict age).
+- How do the estimates using the two methods compare?
+
+
+```{r}
+dugong_lm = lm(Age ~ Length, data = dugong)
+summary(dugong_lm)
+cf = coef(dugong_lm)
+cf
+```
+
+The values in problem 2 for slope and intercept that I calculated using the mean and standard deviations of length and age are pretty much the exact same as the values I calculated in problem 3 but I instead use the functions lm() and coef(). This makes sense because I am still running a regression on age against length but using two different methods.
+
+
+
+### 4
+
+- Add columns with the predicted values and residuals to the dugong data set. *(You can use* **modelr** *functions or just use `mutate()` and calculate these values directly.)*
+- What are the mean and the standard deviation of the residuals?
+
+```{r}
+library(modelr)
+dugong <- dugong %>% add_residuals(dugong_lm) %>% add_predictions(dugong_lm)
+dugong
+
+dugong_residuals = dugong %>% summarise(mean_resid = mean(resid), sd_resid = sd(resid))
+dugong_residuals
+```
+
+
+### 5
+
+- Plot the residuals versus length.
+- Add to this plot a horizontal dashed red line with y intercept 0 and a smooth blue curve using `geom_smooth()` with no ribbon.
+- Add descriptive labels and a title.
+- Comment on the appropriateness of a linear model to describe the relationship between length and age in dugongs.
+
+```{r}
+ggplot(dugong, aes(x=Length, y=resid)) +
+  geom_point() +
+  xlab("Length (meters)") +
+  ylab("Residual (Age)") +
+  scale_x_log10() +
+  geom_hline(aes(yintercept = 0), color = "red", linetype = "dashed") +
+  theme_bw() +
+  ggtitle("Lengths of Dugongs to the Residual Values") +
+  geom_smooth(se=FALSE)
+```
+
+The relationship between x (length) and y (residuals) in this plot appears to not be linear and therefore is quadratic. The graph makes it clear that residuals corresponding to smaller lengths tend to be positive, whereas lengthier dugong tend to have to have a negative residual aside from a couple outliers.
+
+### 6
+
+- The simple linear regression model for $Y_i$ conditional on the values of $X_i = x_i$ is
+
+$$
+\E(Y_i \mid X_i = x_i) = \beta_0 + \beta_1 x_i + \varepsilon_i, \quad \text{for $i = 1, \ldots,n$}
+$$
+
+where $\varepsilon_i \sim \text{Normal}(0, \sigma)$
+for some parameter $\sigma > 0$.
+
+- The parameter $\sigma$ is the unknown population standard deviation of the typical distance between a point $Y_i$ and its true expected value.
+- We can use the residuals, distances between the observed $y_i$ and the fitted regression line as an estimate of $\sigma$.
+- However, the conventional estimate is **not** simply the standard deviation of the residuals, but is calculated by a very similar formula.
+
+$$
+\hat{\sigma} = \sqrt{ \frac{\sum_{i=1}^n (r_i - \bar{r})^2}{c} }
+$$
+
+where $r_i$ is the $i$th residual, $\bar{r}$ is the mean of the residuals (what is it equal to?), and $c$ is a number related to the sample size $n$ for you to determine.
+
+- Use `lm()` to fit the regression line of age on length.
+- Use  `summary()` on this fitted model object and read the results to find the numerical value of the estimate of $\sigma$, $\hat{\sigma}$.
+  - Alternatively, there is a base R function named `sigma()` you can use to extract this value from a fitted `lm()` object.
+  - Note, if you have a local variable named `sigma`, you would need to call the function with its prefix, `stats::sigma()`.
+- Compare this value to the standard deviation of the residuals.
+- By calculation or trial and error, what value of $c$ is needed in the equation above to replicate the value of $\hat{\sigma}$ for the regression model? Show your calculation to verify your response.
+
+```{r}
+dugong_sigmas = dugong %>% summarise(sd_resid = sd(resid), sigma_hat = sigma(dugong_lm), c = (resid - 0)**2/(sigma_hat**2))
+dugong_sigmas
+
+c = dugong_sigmas %>% summarise(c = sum(c))
+c
+```
+
+
+### 7
+
+- Read in the Boston marathon data from the file `boston-marathon-data.csv`.
+- Create scatter plots of `Time` versus `Age` separately for each `Sex` by using a single call to `ggplot()` and using separate facets for each sex.
+- Add a straight regression line to each plot and a smooth curve using `geom_smooth()` and no ribbon.
+- Make two residual plots, one for each sex.
+- Based on visual examination of these plots, is it reasonable to model `Time` versus `Age` with simple linear regression for each sex? Briefly explain.
+```{r}
+marathon = read_csv("../../data/boston-marathon-data.csv")
+
+ggplot(marathon, aes(Age, Time)) + geom_point() + xlab("Age (years)") + ylab("Time") + ggtitle("Boston Marathon Finishing Times vs. Age") + geom_smooth(se=FALSE, method = 'lm') + facet_wrap(~Sex)
+
+marathon_lm = lm(Time ~ Age, data = marathon)
+library(modelr)
+marathon <- marathon %>% add_residuals(marathon_lm) %>% add_predictions(marathon_lm)
+ggplot(marathon, aes(Age, resid)) + geom_point() + xlab("Age (years)") + ylab("Residual (Time)") + geom_hline(aes(yintercept = 0), color = "red", linetype = "dashed") + ggtitle("Boston Marathon (Time vs. Age) Residual Plot") + geom_smooth(se=FALSE) + facet_wrap(~Sex)
+```
+
+The relationship between x (Age) and y (Residuals) is especially non-linear for the females in the data set. The trend line is above the horizontal line at y=0 for all the female data, which means a linear regression model is not the most reasonable for this data. For the male data, it is still not completely linear, but the trend line up until about x = 60 is pretty close to the horizontal line at y=0, so I would say a linear model can be more reasonable for the male data, but I still wouldn't recommend it since the data towards the higher x-values causes the trend line to increase a lot.

@@ -1,0 +1,167 @@
+---
+author: "Michael Raffanti"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, error = TRUE, fig.height = 4)
+library(tidyverse)
+library(lubridate)
+library(modelr)
+source("../../scripts/viridis.R")
+source("../../scripts/ggprob.R")
+```
+
+\renewcommand{\prob}{\mathsf{P}}
+\newcommand{\E}{\mathsf{E}}
+\newcommand{\Var}{\mathsf{Var}}
+\newcommand{\SD}{\mathsf{SD}}
+\newcommand{\SE}{\mathsf{SE}}
+
+## Homework Assignment 11
+
+#### Due Saturday, December 10, 2022, at 11:59 PM
+
+## Problems
+
+The data set `lake-monona-winters-2022.csv` contains the date in which Lake Monona first freezes for each winter from 1855--1856 through 2021--2022.
+After transformations in the next code block,
+the variable `year1` is the first year of each winter and the variable `y` encodes the first freeze date as the number of days after November 30, so a value $y = 1$ is December 1, $y = 32$ is January 1 of the following year, and $y = -7$ is November 23.
+
+```{r, include = FALSE}
+monona = read_csv("../../data/lake-monona-winters-2022.csv") %>% 
+  mutate(y = ff_x - 153) %>% 
+  select(winter, year1, first_freeze, y)
+
+ggplot(monona, aes(x = year1, y = y)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  xlab("Winter (first year)") +
+  ylab("First Freeze Days After Nov. 30")
+
+fit_for_problem_4 = lm(y ~ year1, data = monona)
+```
+
+### 1
+
+- Fit a linear model to predict the value of $y$ (the date where Lake Monona first freezes measured in days after November 30) as a function of the first year of the winter, `year1`.
+- Report the coefficients of this linear model.
+
+```{r}
+y_model = lm(formula = y ~ year1, data = monona)
+summary(y_model)
+y_coef = coef(y_model)
+y_coef
+```
+
+
+### 2
+
+- Use the **modelr** functions `add_residuals()` and `add_predictions()` to add columns for the residuals and predictions to the fitted model.
+- Make a plot of the residuals versus the first year of winter.
+  - Add a horizontal line with y-intercept zero.
+- Comment on patterns in the residual plot which may or may not suggest either non-linearity or non-constant variance
+
+```{r}
+library(modelr)
+monona = monona %>% add_residuals(y_model) %>% add_predictions(y_model)
+
+ggplot(monona, aes(x = year1, y = resid)) + geom_point() + xlab("Winter (first year)") + ylab("Residuals") + geom_hline(aes(yintercept = 0), color = "red", linetype = "dashed") + ggtitle("The First of Winter vs. Residuals", subtitle = "1855 - 2022")
+```
+
+The pattern for the residual plot for first year of winter versus the residuals from the model is somewhat linear. As we move along the x axis, increasing each year by one, points on the graphs are fairly split between being above or below the horizontal line at y=0. The residuals are spread out and are negative and positive at all areas throughout the graph. This implies that the relationship between year1 and residuals is linear and not quadratic. This can also be checked by adding in a best fit line, which is very close to being the same as the horizontal line at y=0. So although it is not perfectly linear, it is more linear than quadratic.
+
+### 3
+
+- Create a 95% confidence interval for the slope parameter.
+(The interval is calculated as $\text{(Estimate)} \pm t^*\text{(SE)}$ where $t^*$ is an appropriate critical quantile from a t distribution with $n-2$ degrees of freedom in the case of simple linear regression.)
+- Interpret the confidence interval in context.
+
+You may use `summary()` to print the linear model summary.
+Alternatively, the following function returns the standard errors from the fitted linear model object as a base R vector.
+
+```{r}
+lm_se = function(model)
+{
+  return (sqrt(diag(vcov(model))))
+}
+model = y_model
+se = lm_se(model)
+```
+
+```{r}
+n = 167
+slope_estimate = 0.07587
+estimate_se = 0.0178
+upper_estimate_ci = slope_estimate + (qt(0.975, n-2)*estimate_se)
+lower_estimate_ci = slope_estimate - (qt(0.975, n-2)*estimate_se)
+upper_estimate_ci
+lower_estimate_ci
+```
+
+Based on the confidence intervals calculated, 0.1110151 and 0.04072487, we are 95% confident that the estimated slope of the regression given by summary() function lies between both the upper and lower bound interval.
+
+### 4
+
+- Assume that a linear model between the first freeze date (coded as #days after November 30) and first year of winter is appropriate for the Lake Monona data and that you can interpret this model as a feature of the climate in Madison over time for the past 160+ years.
+- Examine code below which creates a 95% confidence interval for the expected date for Lake Monona to first freeze in the winter of 2022-2023. *(Note: the fitted regression line is an estimate of the location of this hypothetical feature of climate change over time.)*
+- Interpret the confidence interval in context (use actual dates rather than coded days after November 30).
+- Make a scatter plot of the coded first freeze date versus year and add the plot of a regression line with a ribbon using `geom_smooth()`.
+- Explain what feature of the ribbon corresponds to the confidence interval you calculated.
+
+
+```{r}
+## confidence interval using predict()
+new_data = tibble(
+  year1 = 2022
+)
+
+full_prediction = predict(fit_for_problem_4, monona, interval = "prediction") %>% 
+  as_tibble()
+
+monona = monona %>% 
+  mutate(pred_lwr = full_prediction$lwr,
+         pred_upr = full_prediction$upr)
+
+predict(fit_for_problem_4, new_data, interval = "confidence") %>% 
+  round(digits = 1)
+
+ggplot(monona, aes(x = year1, y = y)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = TRUE) +
+  geom_line(aes(x = year1, y= pred_upr), color = "red", linetype="dashed") +
+  geom_line(aes(x = year1, y= pred_lwr), color = "red", linetype="dashed") +
+  xlab("First Year of Each Winter") +
+  ylab("First Freeze Days After Nov. 30") +
+  ggtitle("The First Year of Each Winter  vs. The Number of Days After Novemeber 30th when the First Freeze Occured")
+```
+
+The 95% confidence interval outlines the shaded region when we use geom_smooth(method="lm", se=TRUE), and the confidence interval narrows as x gets closer to the mean of year1, which is the first year of each winter.
+
+### 5
+
+- The following block of code uses a fitted linear model to create a 95% prediction interval for the individual date in the 2022-2023 winter when Lake Monona will first freeze.
+- Interpret the interval in context (use dates and not numerical values).
+- Explain what feature of the provided plot corresponds to this prediction interval.
+
+```{r}
+predict(fit_for_problem_4, new_data, interval = "prediction") %>% 
+  round(digits = 1)
+
+full_prediction = predict(fit_for_problem_4, monona, interval = "prediction") %>% 
+  as_tibble()
+
+monona = monona %>% 
+  mutate(pred_lwr = full_prediction$lwr,
+         pred_upr = full_prediction$upr)
+
+ggplot(monona, aes(x = year1, y = y)) +
+  geom_ribbon(aes(ymin = pred_lwr, ymax = pred_upr), alpha = 0.2, fill = "blue") +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  geom_vline(xintercept = 2022, color = "red") +
+  xlab("Winter (first year)") +
+  ylab("First Freeze Days After Nov. 30")
+```
+
+The prediction interval in the context of this plot has the purpose of looking at later dates beyond the year 202l. The interval is showing, based on the data for the number of days after November 30th that the first freeze occurred and the first years of winter, the range in which a 95% prediction lies and what points from this plot fall within it. The goal of the interval is to predict a future y value, numbers of days after November 30th, for some x value, year, and the outcome is random, not fixed.The geom_ribbon functions represents the lower and upper prediction intervals for every year in the data frame.

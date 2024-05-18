@@ -1,0 +1,114 @@
+---
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,message=FALSE)
+```
+
+## Assignment 1
+
+### Problems
+
+  1. Type the following commands into the console.
+
+```{r, eval=FALSE}
+set.seed(2022)
+rpois(1, 25)
+```
+
+The output will be the characters `[1]` followed by a number. What is the number?
+
+29
+
+  2. Type the following commands into the console.
+ 
+```{r, eval=FALSE}
+library(tidyverse)
+data(trees)
+summarize(trees, n=n(), average=mean(Height))
+```
+
+The output will be a table that indicates the number of rows (n) of the data set `trees` and the average of the variable `Height`. What is the average of the variable `Height`, listed under the word **average** in the output?
+
+76
+
+  3. Write code in the following R chunk to create a vector named `a1` by using the colon operator (`:`) with the values from 1 to 5.
+  Also, create a vector named `a2` with the same values using `seq()`.
+  Then, include lines in your chunk with only the name of each of these newly created objects so that their values display when the file is knitted.
+  
+```{r}
+a1 = (1:5)
+a1
+a2 = seq(1,5)
+a2
+```
+  
+
+
+  4. What is the sum of all even integers from 2 to 1000? Write code in the R chunk using `seq()` and `sum()` to do the calculation.
+  Then, outside of the R chunk, delete the text "REPLACE THIS TEXT WITH YOUR RESPONSE" and replace it with a sentence that provides the answer to the question, such as
+  
+> The sum of the even integers from 2 to 1000 is X.
+
+Your sentence will use a number instead of X.
+
+```{r}
+x = seq(2,1000)
+sum(x)
+```
+
+The sum of the even integers from 2 to 1000 is 500499
+
+  5. Write a short sentence to explain what the symbol `^` does in the following code chunk.
+  
+```{r}
+2^seq(0, 5, 1)
+```
+  
+The "^" symbol in the chunk creates a sequence but insted of being just "0 1 2 3 4 5" the output sequence is 2 to the power of each of those number. For example, the first number in the output is 1 because 2^0=1.
+
+
+The following R chunk creates a vector of 10 random numbers which are rounded to one decimal place and sorted from smallest to largest.
+These values are used in the remaining problems in this assignment.
+  
+```{r}
+x = sort(round(rnorm(10, mean = 20, sd = 5), 1))
+x
+```
+
+  6. Write code to calculate the minimum and maximum using `min()` and `max()` and verify that the answers are correct.
+
+```{r}
+min(x)
+max(x)
+```
+
+
+
+  7. Calculate the median of these values. Write a brief sentence to explain why this calculated value is the median.
+*(The median is the "middle value" in a sorted list of numbers. What does "middle" mean when there are an even number of values in the list, at least as encoded in the function `median()`?)*
+
+```{r}
+median(x)
+```
+
+The median is the middle number within a set of data. There are 10 pieces of data, so the middle number would come between 15.5 and 18.3 (5th and 6th number is set), which is how it gives back 16.9.
+
+
+  8. Calculate the value of the expression below by using the values in `x` for the vector $x = (x_1, \ldots, x_n)$, where $\bar{x}$ stands for the mean of the values in $x$. Here, $n=10$ is the length of our list of numbers.
+In other words,
+subtract the mean from each individual value in `x`,
+square these values individually,
+and then sum up these squared differences to get a single value.
+Your solution may break this calculation up in many steps, naming the partial calculations and using these values subsequently,
+or, you can do everything in a single expression.
+
+$$
+sum_{i=1}^n (x_i - \bar{x})^2
+$$
+
+```{r}
+
+```
+

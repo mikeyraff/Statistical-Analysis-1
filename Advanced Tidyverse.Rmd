@@ -1,0 +1,423 @@
+---
+author: "Michael Raffanti"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE,
+                      warning = FALSE, error = TRUE, fig.height = 3)
+library(tidyverse)
+library(kableExtra)
+source("../../scripts/viridis.R")
+source("../../scripts/ggprob.R")
+```
+
+\newcommand{\E}{\mathsf{E}}
+\newcommand{\Var}{\mathsf{Var}}
+\renewcommand{\prob}{\mathsf{P}}
+
+## Homework Assignment 6
+
+#### Due Friday, October 28, 2022, at 11:59 PM
+
+
+## Problems
+
+### 1
+
+A discrete random variable $X$ has possible values 0, 1, 2, 3, 4, 5, 6, 7, 8 with the following partial probability distribution.
+The missing probabilities $\prob(X=7)$ and $\prob(X=8)$ are equal to each other.
+
+```{r, echo = FALSE}
+set.seed(20221021)
+x = 0:8
+p = rnorm(7,5,2.1)
+p = sort(round(p / sum(p) * 0.84, 2))
+p1 = tibble(x = x, p = c(p, rep(NA,2)))
+
+p1_tab = p1 %>% 
+  mutate(x = str_c(x)) %>% 
+  pivot_wider(names_from = x, values_from = p) %>% 
+  mutate(x = "P(X=x)", .before = `0`) 
+
+p1_tab %>% 
+  kable() %>% 
+  kable_styling(position = "center", full_width = FALSE)
+```
+
+### 1A
+
+Put the values `x = 0:8` and `p =` the tabled probabilities into a data frame with columns `x` and `p`.
+Write code to calculate the missing values for $\prob(X=7) = \prob(X = 8)$ and replace the missing values with these calculated values into your data frame.
+Verify that the sum of all probabilities is 1.
+
+```{r}
+prob1a = p1 %>% filter(x != 7, x != 8) %>% summarise(sum_p = sum(p)) %>% pull(sum_p)
+p7 = (1 - prob1a)/2
+p8 = (1 - prob1a)/2
+p1 = p1 %>% 
+  mutate(p = case_when(!is.na(p) ~ p,TRUE ~ p7, TRUE ~ p8))
+p1 %>%
+  pivot_wider(names_from = x, values_from = p) %>% 
+  mutate(x = "P(X=x)") %>% 
+  relocate(x) %>% 
+  kable() %>% 
+  kable_styling(position = "left", full_width = FALSE,
+                bootstrap_options = c("striped", "condensed"))
+sum_p = prob1a + p7 + p8
+sum_p
+```
+
+
+### 1B
+
+Calculate the mean, the variance, and the standard deviation of this distribution.
+
+```{r}
+x = p1$x
+p = p1$p
+mu = sum(x*p)
+mu
+sigma2 = sum((x-mu)^2*p)
+sigma2
+sigma = sqrt(sigma2)
+sigma
+```
+
+
+
+### 1C
+
+Make a graph of the distribution of $X$.
+Use `geom_segment()` to place vertical segments of the probability at each `x` location.
+Add a solid vertical line at the mean and dashed vertical lines 1, 2, and 3 standard deviations above and below the mean.
+
+```{r}
+plot1c = ggplot(p1, aes(x = x, y = p)) +
+  geom_segment(aes(xend = x, yend = 0), color = "blue", size=2) +
+  geom_hline(yintercept = 0) + xlab("x") +
+  ylab("P(X=x)") +
+  ggtitle("Distribution of X") +
+  geom_vline(xintercept = mu, color = "red", linetype = "solid") +
+  geom_vline(xintercept = mu + c(-1,1)*sigma, color = "black", linetype = "dashed") +
+  geom_vline(xintercept = mu + c(-2,2)*sigma, color = "black", linetype = "dashed") +
+  geom_vline(xintercept = mu + c(-3,3)*sigma, color = "black", linetype = "dashed")
+plot1c
+```
+
+
+
+### 1D
+
+What is the probability that $X$ is within one standard deviation of the mean of its distribution?
+
+```{r}
+prob1d = sum(p[x >= mu - sigma & x <= mu + sigma])
+prob1d
+```
+
+
+
+### 2
+
+Suppose you have a random variable $X \sim \text{Binomial}(120, 0.2)$.
+
+### 2A
+
+Calculate and report the mean and standard deviation of the distribution.
+
+```{r}
+print(120*0.2)
+print(sqrt(120*0.2*0.8))
+```
+
+
+### 2B
+
+Calculate and report the probability that the random variable is exactly equal to 20, $\prob(X = 20)$.
+
+```{r}
+prob2b = dbinom(20, 120, 0.2)
+prob2b
+```
+
+
+### 2C
+
+Calculate and report the probability that $X$ equals 20 or more, $\prob(X \ge 20)$.
+
+```{r}
+prob2c = pbinom(19, 120, 0.2, lower=FALSE)
+prob2c
+```
+
+
+### 2D
+
+Create a graph which displays the binomial distribution of $X$ using vertical segments at each value of $X = x$, where the height of the segments indicate the probability $\prob(X = x)$.  
+
+- For $X \ge 20$, use a different color for the segments from the rest to help visualize your answer to 2C.    
+-  Only display values on the plot for $X \le 50$.  
+- You may use functions from `ggprob.R`, or create the graphic using your own code.
+  - If you code from `ggprob.R`, you might elect to use `gbinom()` with argument `b=50` to plot the probabilities from 0 to 50 in one color and then add a layer using `geom_binom_density()` to overlay line segments in a different color by `color = "some-color-name"` and `a = 20` as arguments.
+  - The arguments `a` and `b` are the left and right arguments for the range of probabilities to graph in `gbinom()` and `geom_binom_density()`.
+  - When not specified, the code extends the missing endpoint(s) to the edge of the plotting area.
+  - The values of `n` and `p` need to be set in each layer: they are not aesthetics mapped to variables within `aes()` that are inherited by subsequent layers.
+
+```{r}
+n_2 = 120
+p_2 = 0.2
+mu_2 = n_2*p_2
+sigma_2 = sqrt(n_2*p_2*(1-p_2))
+
+prob2d = gbinom(n_2, p_2, scale = TRUE, b=50) + geom_binom_density(n_2, p_2, scale=TRUE, color = "purple", a=20) +
+  theme_minimal()
+prob2d
+```
+
+
+
+### 3
+
+What is the probability that $X$ from Problem 2 is within one, two, and three standard deviations of the mean? Round each probability to four decimal places.
+
+```{r}
+mu_2 + c(-1,1)*sigma_2
+one_sigma = pbinom(28, n_2, p_2) - pbinom(19, n_2, p_2)
+one_sigma = format(round(one_sigma, 4), nsmall=4)
+one_sigma
+mu_2 + c(-2,2)*sigma_2
+two_sigma = pbinom(32, n_2, p_2) - pbinom(15, n_2, p_2)
+two_sigma = format(round(two_sigma, 4), nsmall=4)
+two_sigma
+mu_2 + c(-3,3)*sigma_2
+three_sigma = pbinom(37, n_2, p_2) - pbinom(10, n_2, p_2)
+three_sigma = format(round(three_sigma, 4), nsmall=4)
+three_sigma
+```
+
+
+
+
+
+### 4
+
+Draw a graph of the binomial distribution from Problems 2 and 3
+and add vertical lines at the mean (solid) and 1, 2, and 3 standard deviations
+above and below the mean (dashed).
+Use code from `ggprob.R`, or create the graphic using your own code.  Only display values for X between 0 and 40.
+
+
+```{r}
+prob4 = gbinom(n_2, p_2, scale = TRUE, b=40) + xlab("x") + ylab("P(X=x)") +
+  ggtitle("Distribution of X") +
+  geom_vline(xintercept = mu_2, color = "red", linetype = "solid") +
+  geom_vline(xintercept = mu_2 + c(-1,1)*sigma_2, color = "black", linetype = "dashed") +
+  geom_vline(xintercept = mu_2 + c(-2,2)*sigma_2, color = "black", linetype = "dashed") +
+  geom_vline(xintercept = mu_2 + c(-3,3)*sigma_2, color = "black", linetype = "dashed")
+prob4
+```
+
+
+
+### 5
+
+The following code makes a graph of the cumulative distribution function for the binomial distribution, that is $F(x) = \prob(X \le x)$ for $X \sim \text{Binomial}(7, 0.3)$.
+This is the function which is calculated by the base R function `pbinom()`.
+
+### 5A
+
+Modify the code to add a horizontal red dotted line at 0.4.
+
+
+```{r}
+prob5 = tibble(
+  x_5 = seq(-1,8,1),
+  p_5 = dbinom(x_5, 7, 0.3),
+  cdf = pbinom(x_5, 7, 0.3))
+
+ggplot(prob5, aes(x = x_5, y = cdf )) +
+  geom_step(color = "blue") +
+  geom_hline(yintercept = 0) + geom_hline(yintercept = 0.4, color = "red", linetype = "dotted") +
+  scale_x_continuous(breaks = 0:7) +
+  xlab("x") +
+  ylab("Probability") +
+  ggtitle("Binomial(7, 0.3) distribution CDF") +
+  theme_minimal()
+```
+
+### 5B
+
+Calculate the 0.4 quantile of this distribution.
+```{r}
+n = 7
+p = 0.3
+prob5b = qbinom(0.4, n, p)
+prob5b
+```
+
+
+### 5C
+
+Explain how the value of the quantile is related to the red dotted line which you added to the plot.
+
+The quantile is the smallest value x such that P(X<=x) = F(x) >= p, where F is the distribution function. In this case, 2 is the value of x such that P(X<=x) = 0.4. So, in other words, 2 is the smallest value x could be for the expression P(X<=x) = 0.4.
+
+### 5D
+
+Use the graph to determine the 0.75 quantile of this distribution.
+Then verify your observation with a calculation.
+
+```{r}
+n = 7
+p = 0.3
+prob5d = qbinom(0.75, n, p)
+prob5d
+```
+
+
+### 6
+
+After this assignment is due the Green Bay Packers will have ten more regular season games to play.
+A statistics students suggests using a binomial model for the number of games out of these ten that the Packers will win.
+
+Provide one or more reasons for why this model may not meet all of the assumptions for a binomial model.
+
+For starters, binomial models are discrete distributions that consider the number of successes in a fixed number of trials. These are best used when we want to know about the occurrence of an event. If we break downs BINS, we first have binary outcomes meaning that each trial has two outcomes, but in this case with the Green Bay Packers the outcomes are not just a win or lost because there can also be a tie, so that already breaks the traits of a good binomial model.
+
+
+### 7
+
+Imagine this two-stage process to create a random variable $X$.
+In the first step, select a coin at random from a large bag of coins where each coin has a different head probability, $P$.
+The distribution of $P$ is uniform between 0 and 1,
+meaning that the density has the function $f(p) = 1$.
+Then, after selecting a specific coin where the random variable $P$ has the value $p$, toss the coin 9 times and count the number of heads.
+Let $X$ be the number of heads.
+The *conditional* distribution of $X$ given a specific value of $P=p$,
+is binomial, $X \,\mid\, P=p \sim \text{Binomial}(9,p)$.
+But the *unconditional* distribution of $X$ is not binomial: it is instead has a distribution formed by averaging together many different binomial distributions, each with $n=9$, but with different values of $p$.
+
+We will use simulation to try to guess the distribution of $X$.
+
+This block of code generates $B = 1,000,000$ random realizations of $P$ and $X$.
+We can then calculate sample statistics of these simulated values as estimates of the values that could be found using analytical methods.
+The columns are `n`, 9 for each row, `p`, a head probability selected uniformly between 0 and 1, and `x`, a single generated value of $X$ selected at random from a binomial distribution with `n` and `p` for each given row.
+
+```{r}
+set.seed(2022)
+B = 1000000
+prob7 = tibble(
+  n = rep(9, B),
+  p = runif(B),
+  x = rbinom(B, n, p)
+)
+```
+
+### 7A
+
+Use `geom_density()` to display an estimated graph of the density of $P$.
+We know that the exact density is uniform between 0 and 1.
+Does the estimated density approximate the exact density well?
+
+```{r}
+B = 1000000
+n = rep(9, B)
+p = runif(B)
+x = rbinom(B, n, p)
+ggplot(prob7) + geom_density(aes(x=p)) + ylab("Density") + ggtitle("Estimated Graph for Density of p")
+```
+
+
+
+### 7B
+
+Calculate the mean and standard deviation of the values in the column `p`.
+
+```{r}
+prob7b = prob7 %>% 
+  summarize(mean = mean(p),
+            sd = sd(p))
+
+prob7b
+```
+
+Theory and a conceptual understanding of the mean suggest that $\E(p) = 0.5$ as this is the balancing point of this symmetric distribution.
+Does the simulation support this fact?
+
+Yes, the simulation does support this fact because after calculating the mean, the average is indeed 0.5 and right in the middle of the middle.
+
+Theory and some calculus can be used to show that the standard deviation of $P$ is equal to $1/\sqrt{C}$ where $C$ is an integer.
+Based on the simulation, what do you think the value of $C$ is?
+
+The value of C would be approximately 12.
+
+
+
+### 7C
+
+Create a graph which shows the observed relative frequency that each for each value of $x$.
+The sum of these relative frequencies should be one.
+Compare this plot with the plot of the distribution of $Y \sim \text{Binomial}(9, 0.5)$.
+How are they similar and how do they differ?
+Which distribution will have a larger standard deviation based on the graph?
+
+```{r}
+n = 100
+p = 0.5
+ggplot(prob7, aes(x=x)) + geom_histogram(aes(y=after_stat(density)), binwidth = 1, color="black", fill="red") + ylab("Probability")
+gbinom(9, 0.5)
+```
+
+The graphs differ because one is based off a binomial distribution where n=9 and p=0.5 and the shows frequency of each value pf x using a histogram and density levels. They are similar because they share the same x-axis and both look at probability on the y-axis. The standard deviation for the histogram graph will be larger because the values on the x-axis are more spread out where as for the binomial graph, not so much.
+
+
+
+
+### 7D
+
+Based on the simulation and the graph of the distribution of $X$,
+what is your best guess for the exact value of $P(X = 5)$?
+Compare this probability with the binomial probability $P(Y = 5)$
+if $Y \sim \text{Binomial}(9, 0.5)$.
+
+```{r}
+n=9
+p=0.5
+pbinom(5, n, p)
+```
+
+If I were to get for the distribution of x based on the simulation and graph, the exact value of P(x=5) would be somewhere between 0.55 and 0.65 because the graph is pretty evenly distributed amongst all values of x and the mean is 4.5 which is the same as saying that 0.5 and 4.5 are paired so 5 would be paired with a P-value a bit higher than 0.5. Either way, this will be lower than the value for the conditional graph which is about 0.75 
+
+
+
+### 7E
+
+Calculate the sample mean and standard deviation of the simulated `x`.
+Compare these values with the mean and standard deviation of $Y$. Based on the simulation,
+how does $\E(X)$ compare with $\E(Y)$, do you suspect?
+*(The simulated mean is an approximation of $\E(X)$.)*
+How does $\text{SD}(X)$ compare to $\text{SD}(Y)$?
+Are they about the same size or is one larger than the other?
+
+
+```{r}
+n=9
+p=0.5
+prob7e = prob7 %>% 
+  summarize(mean = mean(x),
+            sd = sd(x))
+prob7e
+mean7e = n*p
+sd7e = sqrt(n*p*(1-p))
+mean7e
+sd7e
+
+```
+
+Based on the values I calculated to get mean and standard deviation for x, the mean values appear to be the exact same for both distributions. Because both graphs are centered around the 4.5 marker I believed beforehand that the means would be the same. As for the standard deviations, for the unconditional uniform model, the standard deviation is larger than for the conditional binomial model as I predicted after seeing the graphs.
+
+
+
+
+

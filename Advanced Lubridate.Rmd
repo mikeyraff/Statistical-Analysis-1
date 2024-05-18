@@ -1,0 +1,371 @@
+---
+author: Michael Raffanti
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning = FALSE,
+                      error = TRUE, fig.height = 4)
+library(tidyverse)
+library(lubridate)
+library(broman)
+source("../../scripts/viridis.R")
+source("../../scripts/ggprob.R")
+theme_set(theme_minimal())
+```
+
+\newcommand{\E}{\mathsf{E}}
+\renewcommand{\prob}{\mathsf{P}}
+
+## Homework Assignment 9
+
+#### Due Friday, November 18, 2022, at 11:59 PM
+
+
+### Data
+
+- Some questions use the chimpanzee data set in the file `chimpanzee.csv`.   
+- Other problems use the official Madison weather data, `madison-weather-official-1869-2021.csv`.
+- Additional problems use the Boston Marathon data in the file `boston-marathon-data.csv`. This file is a transformed version of the raw data we used in class and has data for all runners who completed the race in 2010 and 2011. The variable `Time` is the sum of the times from the different portions of the race, each of which begins with "K".
+
+## Problems
+
+### 1
+
+- Read in the `chimpanzee.csv` data file.
+- Make a subset of the data without Chimpanzee G, the only chimpanzee which did not have any sessions without a partner.
+- Make the assumptions that there are universal parameters
+$p_{\text{partner}}$ and $p_{\text{no partner}}$ representing the probabilities that any chimpanzee would make a pro-social choice in a single trial under the experimental conditions we have been examining
+with and without a partner, respectively.
+- Assume that all trials are independent.  
+
+Using all of the data without Chimpanzee G, create a 95% confidence interval for $p_{\text{partner}} - p_{\text{no partner}}$ using the Agresti method for differences in proportions.
+Interpret the confidence interval in context.
+
+```{r}
+chimpanzee = read_csv("../../data/chimpanzee.csv") %>% mutate(with_partner = case_when(partner == "none" ~ "no partner",TRUE ~ "partner")) %>% relocate(with_partner, .after = partner)
+
+chimp = chimpanzee %>% filter(actor != "G") %>% group_by(with_partner) %>% summarize(prosocial = sum(prosocial), selfish = sum(selfish), n = prosocial + selfish, p_hat = prosocial/n)
+
+chimp_ci = chimp %>% mutate(n_tilde = n+2, p_tilde = (prosocial + 1)/n_tilde, se = sqrt(p_tilde*(1 - p_tilde)/n_tilde)) %>% summarize(estimate = diff(p_tilde), se = sqrt( sum( se^2 ) ), z = qnorm(0.975), low = estimate - z*se, high = estimate + z*se)
+x1 = 322
+n1 = 540
+x2 = 83
+n2 = 180
+ntilde1 = n1 + 2
+ntilde2 = n2 + 2
+ptilde1 = (x1+1)/ntilde1
+ptilde2 = (x2+1)/ntilde2
+estimate = ptilde1 - ptilde2
+se1 = sqrt( ptilde1*(1-ptilde1)/ntilde1 )
+se2 = sqrt( ptilde2*(1-ptilde2)/ntilde2 )
+se = sqrt(se1^2 + se2^2 )
+z = qnorm(0.975)
+low = estimate - z*se
+high = estimate + z*se
+ci = c(low, high)
+ci
+```
+The 95% confidence interval for the difference extends from the pro-social probability with a partner being anywhere from 5.1% lower to 21.7% higher than the pro-social choice without a partner for the chimpanzees in the data frame excluding those in group G.
+
+### 2
+
+Use the same chimpanzee data from Problem 1 with the same definitions for $p_{\text{partner}}$ and $p_{\text{no partner}}$.
+Use a hypothesis test to examine the evidence against the hypothesis that these probabilities are equal versus the alternative that they are not.
+Your solution should state hypotheses,
+state a model,
+define a test statistic,
+state the null distribution of the test statistic,
+compute a p-value,
+and interpret the result of the hypothesis in context.
+
+1. State a statistical model
+
+- $p_1$ is the probability that chimpanzees makes the pro-social choice when there is a partner
+- $p_2$ is the probability that chimpanzees makes the pro-social choice when there is no partner
+
+$$
+X_1 \mid p_1 \sim \text{Binomial}(510,p_1) \\
+X_2 \mid p_2 \sim \text{Binomial}(180,p_2)
+$$
+
+2. State hypotheses:
+
+$$
+H_0: p_1 = p_2 \\
+H_a: p_1 \neq p_2
+$$
+
+3. Calculate a test statistic:
+
+```{r}
+test_stat = chimp %>% select(p_hat) %>% summarize(stat = diff(p_hat)) %>% pull(stat)
+test_stat
+```
+
+4. Determine the null sampling distribution of the test statistic
+
+$$
+\bar{p} = \frac{X_1 + X_2}{n_1 + n_2} = \frac{306 + 83}{510 + 180} \doteq 0.563
+$$
+
+5. Calculate the p-value
+
+```{r}
+p0 = chimp %>% summarize(prosocial = sum(prosocial), n = sum(n), p = prosocial / n) %>% pull(p)
+p0
+```
+
+```{r}
+B = 1000000
+set.seed(20010731)
+p_table = tibble(
+  x1 = rbinom(B, n1, p0),
+  n1 = n1,
+  x2 = rbinom(B, n2, p0), 
+  n2 = n2,
+  phat1 = x1/n1,
+  phat2 = x2/n2,
+  diff = phat1 - phat2)
+p_table %>% print(n=15, width = Inf)
+
+pvalue = p_table %>% summarize(pvalue = mean(abs(diff) > test_stat | near(abs(diff), test_stat)) ) %>% pull(pvalue)
+pvalue
+```
+The p-value for this problem is very small meaning that it is significant at the 0.05 and 0.01 levels. So, there is very strong evidence to support the conclusion chimpanzees exhibit pro-social behavior in the experimental setting more with a partner as opposed to without a partner. In other words, we reject the null, and there is a difference in their long-run probabilities ($p = 0.001186$, binomial simulation test for differences in proportions).
+
+### 3
+
+Read in the official Madison weather data.
+Treat the high temperatures on the date of November 18 from the past twenty years (2002--2021) as a random sample from a population of potential maximum temperatures in Madison under recent climate conditions at this time of the year.
+Let $\mu$ and $\sigma$ represent the unknown mean and standard deviations of this population of high temperatures.
+```{r}
+madison_weather = read_csv("../../data/madison-weather-official-1869-2021.csv")
+```
+
+#### 3A
+
+Calculate and display the summary statistics $n$, $\bar{x}$, and $s$, the sample standard deviation.
+
+```{r}
+weather = madison_weather %>% filter(month(date) == 11, day(date) == 18, year(date) > 2001 & year(date) < 2022)
+prob3a = weather %>% summarise(n = n(), xbar = mean(tmax), s = sd(tmax))
+prob3a
+```
+
+#### 3B
+
+Create a graph to display the distribution of this data.
+Choose which type of graph is effective for this purpose.
+
+```{r}
+ggplot(weather, aes(x = tmax)) +
+  geom_density(fill = "blue", color = "black") +
+  geom_hline(yintercept = 0) +
+  xlab("Maximum Temperature") +
+  ggtitle("2002-2021 Madison Weather", subtitle = "November 18th")
+```
+
+
+#### 3D
+
+Calculate and compare the 0.975 quantiles from the standard normal distribution and the t distribution with 19 degrees of freedom.
+On the same graph,
+display the density functions of the standard normal distribution and the t distribution with 19 degrees of freedom, using different colors for each.
+Add dashed vertical lines at the corresponding 0.975 quantiles.
+
+```{r}
+normal = qnorm(0.975)
+t_stat = qt(0.975, 19)
+gnorm(color = 'red') + geom_t_density(df = 19) + geom_vline(xintercept = normal, linetype = 'dashed', color = 'red') + geom_vline(xintercept = t_stat, linetype = 'dashed', color = 'blue') + xlab('x') + ylab("Density") + ggtitle("Normal Distribution and T Distribution", subtitle = "Marks at 0.975 Quantiles")
+```
+
+
+#### 3E
+
+Construct a 95% confidence interval for $\mu$ using the theory of the t distribution by direct calculation using the summary statistics from the first part of the problem.
+Then use the `t.test()` function to verify your calculation.
+Interpret the interval in context.
+
+```{r}
+n = 20
+xbar = 43.55
+s = 11.81647
+prob3e = weather %>% summarize(se = s/sqrt(n), tmult = qt(0.975, n-1), me = tmult*se, low = xbar - me, high = xbar + me)
+ci = prob3e %>% select(low, high)
+ci
+t.test(x = weather$tmax)
+```
+
+
+#### 4
+
+The average daily high temperature over the past 20 years in Madison during the month of November is 45.7 degrees Fahrenheit.
+Use a hypothesis test to test if the average high temperature from our population of potential November 18 high temperatures in recent decades is equal to 45.7 degrees versus the alternative that it is different.
+Conclude your hypothesis test with an interpretation in context which states your conclusion in plain language without technical jargon and summarizes the statistical evidence to support your conclusion in a statement surrounded by parentheses.
+```{r}
+weather_sum = weather %>% summarize(n = n(), xbar = mean(tmax), s = sd(tmax))
+weather_sum
+```
+
+1. State Hypothesis:
+
+$H_0: \mu = 45.7$    
+$H_a: \mu \neq 45.7$
+
+```{r}
+mu0 = 45.7
+weather_sum = weather_sum %>% mutate(tstat = (xbar - mu0)/(s/sqrt(n)))
+weather_sum
+```
+
+```{r}
+weather_sum = weather_sum %>% mutate(pvalue = 2*pt(tstat, n-1))
+weather_sum
+```
+
+There is overwhelming evidence to conclude that the average temperature of all November 18ths in the madison_weather data frame from the last 20 years is not equal to 45.7 and indeed some other value (p = 0.000262, df = 19).
+
+### 5
+
+Using the Boston Marathon data, treat the finishing times of men aged 35--39 in 2010 as a sample from a larger population of men worldwide who could have completed the Boston marathon that year.
+```{r}
+marathon = read_csv("../../data/boston-marathon-data.csv")
+prob5 = marathon %>% filter(Year == 2010, Sex == 'male', Age < 40 & Age > 34)
+```
+
+#### 5A
+
+Calculate a numerical summary of the times to finish the race from this sample,
+including the sample size, sample mean, sample standard deviation,
+and the 0.10, 0.25, 0.50, 0.75, and 0.90 quantiles.
+
+```{r}
+prob5a = prob5 %>% summarise(n = n(), mean = mean(Time), sd = sd(Time), q10 = quantile(Time, 0.10), q25 = quantile(Time, 0.25), median = median(Time), q75 = quantile(Time, 0.75), q90 = quantile(Time, 0.90))
+prob5a
+```
+
+#### 5B
+
+Choose a type of graph and display the distribution of the sample finish times.
+
+```{r}
+ggplot(prob5, aes(x = Time)) +
+  geom_density(fill = "lightblue", color = "black") +
+  geom_hline(yintercept = 0) +
+  xlab("Finishing Time") +
+  ggtitle("2010 Boston Marathon",
+          subtitle = "Men aged 34-39") +
+  theme_minimal()
+```
+
+#### 5C
+
+Find a 95% confidence interval for the mean finishing time in the population using methods of the t distribution,
+first using summary statistics and direct calculation,
+and then using the `t.test()` function.
+Interpret this confidence interval in context following the format of examples from lecture.
+
+```{r}
+B = 50000
+x = prob5 %>% pull(Time)
+set.seed(20211115)
+sample_means = tibble(
+  xbar = map_dbl(1:B, ~{return(mean(sample(x, replace = TRUE)) )}))
+sim1_sum = sample_means %>% 
+  summarize(n_samples = n(),
+            n = length(x), 
+            mean = mean(xbar),
+            sd = sd(xbar))
+sim1_sum
+```
+
+```{r}
+n = 1769
+mean = 214.058
+sd = 38.495
+SE = sd/sqrt(n)
+z = qnorm(0.975)
+ci = prob5a$mean + c(-1,1)*z*sim1_sum$sd
+round(ci, 3)
+t.test(prob5$Time)
+```
+The 95% confidence interval for the mean finishing time for men in 2010 ages from 35-39 finishing anywhere from 212.259 to 215.857.
+
+### 6
+
+The following code executes a simulation with $B = 100,000$ replications of drawing samples of size $n=5$ from a normal population with a mean $\mu = 100$ and standard deviation $\sigma = 20$.
+For each sample, the sample mean and sample standard deviation are calculated and stored in columns of the data frame.
+(This block has `eval = FALSE` set so that when you knit the document before completing this problem, this block is not evaluated.
+Change to `eval = TRUE` before doing this problem.)
+
+```{r}
+set.seed(2022)
+
+B = 100000
+n = 5
+mu = 100
+sigma = 20
+
+prob6 = map_dfr(1:B,
+                ~{
+                  x = rnorm(n, mu, sigma)
+                  return ( tibble(xbar = mean(x), s = sd(x)) )
+                })
+```
+
+#### 6A
+
+For each sample add columns `t` and `z` where `t` is calculated using the formula $T = (\bar{x} - \mu) / (s / \sqrt{n})$ and `z` is calculated using the formula $Z = (\bar{x} - \mu) / (\sigma / \sqrt{n})$.
+
+Display the first 10 rows of this data set.
+
+```{r}
+n = 5
+mu = 100
+sigma = 20
+prob6a = prob6 %>% mutate(t = (xbar - mu)/(s/sqrt(n)), z = (xbar - mu)/(sigma/sqrt(n)))
+head(prob6a, 10)
+```
+
+#### 6B
+
+What proportion of values in the columns `t` and `z` are between the 0.025 and 0.975 quantiles of the standard normal distribution?
+
+```{r}
+x = qnorm(0.025)
+y = qnorm(0.975)
+mean(between(prob6a$t, x, y))
+mean(between(prob6a$z, x, y))
+```
+
+#### 6C
+
+Add to the simulated data frame columns `se_t`, calculated as $s / \sqrt{n}$, and `lower_z` and `upper_z` which contain the lower and upper endpoints of a purported 95% confidence interval calculated by the formula
+$$
+\bar{x} \pm 1.96 \frac{s}{\sqrt{n}}
+$$
+where the standard error is multiplied by the normal quantile 1.96 instead of the 0.975 quantile from an appropriate t distribution.
+What fraction of the corresponding confidence intervals include the true mean $\mu = 100$?
+
+```{r}
+prob6c = prob6a %>% mutate(se_t = s/sqrt(5), lower_z = xbar - 1.96*se_t, upper_z = xbar + 1.96*se_t) 
+prob6c %>% summarise(mean(100 <= upper_z & 100 >= lower_z))
+```
+
+#### 6D
+
+What is the area between $-1.96$ and $1.96$ under the density curve of a t distribution with 4 degrees of freedom?
+
+```{r}
+prob6d = pt(1.96, 4) - pt(-1.96, 4)
+prob6d
+```
+
+
+
+
+
+
+
+

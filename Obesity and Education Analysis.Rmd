@@ -1,0 +1,269 @@
+---
+author: Michael Raffanti
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE,
+                      error = TRUE, fig.height = 4)
+library(tidyverse)
+library(lubridate)
+source("../../scripts/viridis.R")
+```
+
+## Homework Assignment 5
+
+This assignment covers materials from the week of October 3--7 where we learned about reshaping data and other **tidyr** functions and the week of October 10--12 where we learned about strings and regular expressions.
+
+
+### Problems
+
+### Obesity and Education problems
+
+We are interested in examining a relationship between obesity and educational level.
+Our education data set summarizes education level by zip code and sex with the percentage of adults age 25 and older who have a bachelor's degree or higher.
+There is one row per zip code and separate columns for females and males with a small amount of missing data.
+
+Our obesity data is broken down more finely: we have one row for each zip code, sex, and age range.
+
+In order to join these data sets, we will want to reshape each so that there is one row per zip code and sex.
+The reshaped education data set will have columns `zip`, `sex`, and `pct_bachelors` with the percentage of individuals of the given sex in that zip code with at least a bachelors degree.
+The reshaped obesity data set will have columns `zip`, `sex` and `pct_obese` with the estimated population percentage of individuals in the given sex and zip code that are obese (BMI > 30).
+We will only estimate these percentages in zip codes with no missing data among adults.
+
+Note that our adult educational variable and adult obesity variables are calculated on different subsets of the adult populations within each zip code and sex (25+ for education, 18+ for obesity).
+This is okay as our comparisons are at the zip code level and not the individual person level.
+
+The first two problems involve reshaping this data.
+Problems 3 and 4 ask you to do some data analysis with these reshaped and/or joined data sets.
+
+### 1
+
+Read in the `education.csv` data frame into a data frame `education_orig`.
+Drop rows with any missing data.
+Reshape it and save as `education` so that there is a single row for each zip code and sex (so, two rows per zip code) using the `pivot_longer()` function.
+After the transformation, you should have the following columns:
+
+- `zip` = zip code; change its type to character
+- `sex` = sex; make the values `"female"` and `"male"`
+- `pct_bachelors` = % adults (aged 25+, of the given sex by zip) with at least a bachelors degree
+
+This data transformation will require reshaping data, changing data values, and transforming column names.
+There are (at least) two ways to think about doing this:
+
+- Rename the columns before reshaping.
+- Recode the values after reshaping.
+
+Pick one and do it.
+
+```{r}
+education = read_csv("../../data/education.csv") %>% rename(male=pct_m_bach, female=pct_f_bach) %>% pivot_longer(c(male, female), names_to = "sex", values_to = "pct_bach")
+org_ed = read_csv("../../data/education.csv") %>% rename(male=pct_m_bach, female=pct_f_bach)
+```
+
+Print out all columns of the first ten rows of the transformed education data frame.
+
+```{r}
+head(education, 10)
+```
+
+
+
+### 2
+
+The aim is to create a summary of the obesity data so that there is:
+
+- a summary only for the zip codes with no missing data among adults
+- one row per retained zip code and sex
+- columns `zip`, `sex`, `obese_pop`, `pop`, and `pct_obese`
+  - The `zip` column should have character values
+  - The `obese_pop` column is an estimate of the number of subjects in `pop` that are obese in the population (not the observed number in the sample).
+  - The `pop` column is the total population in that zip code / sex.
+  - The `pct_obese` value is based on sample estimates
+    - Make sure to sum population estimated number of people *before* doing division.
+
+Your strategy should be to filter out the rows with obesity data on children and then summarize the remaining adult data, accounting for missing data by eliminating all zip codes with missing data for *some* sex/age combinations (keep only if all eight are not missing).
+
+If you have done this correctly, there are 306 zip codes with complete adult obesity data, so your obesity data set has $306 \times 2 = 612$ rows.
+
+```{r}
+obese = read_csv("../../data/obesity.csv")
+
+obese1 = obese %>% filter(!(age == "05-17"))
+zip = obese1 %>% group_by(zip) %>% summarise(na_obese = sum(is.na(obese)), na_n = sum(is.na(n)), na_pop = sum(is.na(pop)), ) %>% filter(!((na_obese>0) | (na_n>0) | (na_pop>0))) %>% select(zip)
+
+obese1 = obese1 %>% semi_join(zip, by = "zip") %>% group_by(zip, sex) %>% mutate(obese_n = pop*obese/n) %>% summarise(pop=sum(pop), obese_pop=sum(obese_n), pct_obese=(obese_pop/pop))
+```
+
+
+### 3
+
+This problem just asks you to examine the education data to compare education rates between females and males.
+
+#### 3A
+
+Using the reshaped education data set,
+compare the distributions of the percentages of adult men and women aged 25+ in zip codes with at least a bachelors degree with a new geometry, a *violin plot*, using `geom_violin()`.
+Use `geom_violin()` with`sex` on the x axis and `pct_bachelors` on the y axis.
+Provide meaningful axis labels and a plot title.
+
+A violin plot is like the love child resulting from a fling between side-by-side box plots and density plots.
+Similar to a side-by-side box plot, there is a separate geometric shape for each group; in this case, one for female and one for male.
+But unlike a boxplot which displays a few quantiles and nothing about the shape, a violin plot shows the same shape as a density plot, but this shape is reflected along an invisible axis.
+Where the violin plot is thick, the density is thick and there are many data value in those regions.
+Where the violin plot is skinny, data is much more sparse.
+
+You may also use a fill color to make the area of the violin plot stand out more from the background.
+Setting `fill = sex` within `aes()` will use different colors for female and male.
+Setting `fill = "some-color-name"` outside of `aes()` uses the same color for all groups.
+
+```{r}
+education %>% ggplot(aes(sex, pct_bach)) + geom_violin(aes(fill=sex)) + xlab("Sex") + ylab("Percent with Bachelors Degree") + ggtitle("Rate of Bachelor's Degree Ownership by Sex")
+```
+
+
+#### 3B
+
+The previous plot compares the two distributions, but ignores the fact that the data comes in female-male pairs, one pair for each zip code.
+Another way to compare these values is with a scatter plot with one point per zip code.
+Use the original data where the female and male columns of data were separate and each zip code had its own row. Make a scatter plot with the female percentages on the y axis versus the male percentages on the x axis. Use `geom_abline()` to add a line through the origin (`intercept = 0`) and slope 1.
+Points above the line are zip codes where the percentage of adult women with a bachelors education exceeds that of males;
+points below are the other direction.
+Is this pattern consistent with the previous plot?
+
+The data is pretty, but I would say more points are slightly above the line. But, from the violin graphs it only seems like about 20 to 30 percent of males and females have bachelors degrees based on the density differences in the graph. But the scatter plot shows most points above the line, which would imply a percent higher than the 20 to 30 range.
+
+(Are more points above the line than below?)
+Add meaningful axis titles.
+
+```{r}
+org_ed %>% ggplot(aes(male, female)) + geom_point() + geom_abline(intercept = 0, slope = 1) + xlab("Male") + ylab("Female") + ggtitle("Percentage of Men and Women with Bachelor's Degree")
+```
+
+
+
+### 4
+
+Join the `obesity` and `education` data sets,
+joining by zip code and sex,
+keeping only zip code / sex combinations found in both data sets.
+(Use `by = c("zip", "sex")` to specify more than one joining variable.)
+Plot the obesity percentage on the y-axis versus the education percentage on the x axis.
+Use different colors for each sex and add a smooth curve for each color.
+Describe the pattern you see:
+how does obesity rate change among men and women as the population of zip codes increases?
+
+The data shows a correlation between percentage of adults with at least a bachelor's degree and percentage of obese adults in a population. That the greater the percentage of adults that have at least a bachelor's degree in a population,the lower the percentage of obese adults in that population.Based on this observation, we can say that the percentage of adults that have at least a bachelor's degree can affect the percentage of obese adult in a population, but does not necessarily the cause of the change.
+
+```{r}
+ob_bach = obese1 %>% left_join(education, by = c("zip", "sex"))
+
+ob_bach %>% ggplot(aes(pct_bach, pct_obese)) + geom_point(aes(color = sex)) + geom_smooth(aes(color = sex), se=FALSE) + xlab("Percentage of Adult with Bachelor's Degree") +ylab("Percentage of Obese Adults") +ggtitle("Percentage of Obese Adults vs. Percentage of Adults with Bachelor's Degree",subtitle = "By Zip Zode")
+```
+
+
+### Wordle Problems
+
+The final six problems ask you to use string and regular expression knowledge to answer questions using the solutions from the Wordle data file.
+
+```{r}
+wrdl_solutions = read_csv("../../data/wordle_data.csv") %>% 
+  filter(solution == TRUE) %>% 
+  select(word)
+```
+
+
+
+### 5
+
+Find and print all Wordle solutions with three or more letters "e".
+
+```{r}
+prob5 = wrdl_solutions %>% mutate(count_e = str_count(word, "e")) %>% filter(count_e >= 3) %>% arrange(word)
+prob5
+```
+
+
+### 6
+
+Find all words that have three or more letters which are one of 'a', 'e', 'i', 'o', or 'u'.
+Print a summary with the count of how many words there are and the first and last alphabetically.
+
+```{r}
+prob6 = wrdl_solutions %>% mutate(vowel= str_count(word, "[aeiou]")) %>% filter(vowel >= 3) %>% arrange(word) %>% summarize(n=n(), first = min(word), last = max(word))
+
+prob6
+```
+
+
+### 7
+
+Find all Wordle solutions which have a repeated letter 'o'.
+Print a summary table with a count of how many solutions there are and the first and last alphabetically.
+
+```{r}
+prob7 = wrdl_solutions %>% mutate(count_o = str_count(word, "oo")) %>% filter(count_o > 0) %>% arrange(word) %>% summarize(n = n(), first = min(word), last = max(word))
+prob7
+```
+
+
+### 8
+
+Find all Wordle solutions with a repeated letter.
+Print a summary table with a count of how many solutions there are, the first and last words, alphabetically,
+the number that have repeated letters 'a',
+the number that have repeated letters 'e',
+the number that have repeated letters 'i',
+the number that have repeated letters 'o',
+and the number that have repeated letters 'u'.
+
+```{r}
+prob8 = wrdl_solutions %>% filter(str_detect(word, "([:alpha:])\\1")) %>%  mutate(count_a = str_count(word, "aa"), count_e = str_count(word, "ee"), count_i = str_count(word, "ii"), count_o = str_count(word, "oo"), count_u = str_count(word, "uu")) %>% filter(count_a>0 | count_e>0 | count_i>0 | count_o>0 | count_u>0) %>% arrange(word) %>% summarize(n = n(), first = min(word), last = max(word))
+prob8
+```
+
+
+
+### 9
+
+Tabulate the frequency that each letter ends a Wordle solution.
+Write this entire table in descending order of this frequency.
+
+Virtual standing ovation if you include with counts 0 all letters which do not appear at the end of any solution.
+*(The base R object `letters` is a vector with all lower case letters and may be helpful for this optional last part. There is also a useful function called `replace_na()`)*
+
+
+```{r}
+prob9 = wrdl_solutions %>% mutate(letter = str_sub(word, -1, -1)) %>% group_by(letter) %>% count() %>% arrange(desc(n))
+prob9
+```
+
+#### Solution
+
+
+### 10
+
+Suppose in playing Wordle that the first guess "irate" returns the pattern "Y__YY" and a second guess "exist" returns the pattern "Y_Y_G".
+Find all remaining possible Wordle solutions.
+
+Note:
+
+- The first guess implies that:
+  - the solution contains an 'i', a 't', and an 'e', but none are in the same position as they are in "irate"
+  - the solution does not contain an 'r' nor an 'a'
+- The second guess implies that:
+  - the solution does not contain an 'x' nor an 's'
+  - the 'e' is not the first letter
+  - the 'i' is not the third letter
+  - the word ends with a 't'
+  
+You solution might include several steps using `filter()`,
+some which use `str_count()` for specific letters or regular expressions and one or more which use `str_detect()` and a regular expression pattern.
+
+```{r}
+prob10 = wrdl_solutions %>% filter(str_count(word, "i") >= 1) %>% filter(str_count(word, "t") >= 1) %>% filter(str_count(word, "e") >= 1) %>% filter(str_sub(word, -1) == "t") %>% filter(str_detect(word, ".e", FALSE)) %>% filter(str_detect(word, "^i", TRUE), str_detect(word, "..i..", TRUE)) %>% filter(str_detect(word, "s", TRUE)) %>% filter(str_detect(word, "x", TRUE)) %>% filter(str_detect(word, "r", TRUE)) %>% filter(str_detect(word, "a", TRUE)) 
+prob10
+```
+
+
+

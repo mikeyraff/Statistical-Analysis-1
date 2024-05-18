@@ -1,0 +1,162 @@
+---
+author: Michael Raffanti
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning = FALSE,
+                      error = TRUE, fig.height = 4)
+library(tidyverse)
+library(broman)
+source("../../scripts/viridis.R")
+source("../../scripts/ggprob.R")
+```
+
+\newcommand{\E}{\mathsf{E}}
+\renewcommand{\prob}{\mathsf{P}}
+
+## Homework Assignment 8
+
+#### Due Friday, November 11, 2022, at 11:59 PM
+
+
+### Data
+
+- The data are in the file `chimpanzee.csv`.    
+- These data are artificial, but created to match details from a 2011 PNAS paper on chimpanzee prosocial choice.  
+- See the [Course Notes and Case Studies Chapter 18](https://bookdown.org/bret_larget/stat-240-case-studies/chimpanzees-and-prosocial-choice.html) for background on the data.
+
+
+## Problems
+
+### 1
+
+For this question,   
+
+- Read in the `chimpanzee.csv` data file.  
+-  Consider only those trials with a partner.
+-  Make an assumption that there is a universal $p_{\text{partner}}$ representing the probability any chimpanzee would make a prosocial choice in a single trial under the experimental conditions we have been examining.  
+- Assume that all trials are independent.  
+```{r}
+chimpanzee = read_csv("../../data/chimpanzee.csv")
+prob1 = chimpanzee %>% filter(partner != 'none') %>% mutate(sum_prosocial = sum(prosocial), sum_selfish = sum(selfish))
+```
+
+#### 1A
+Under these assumptions, write down a statistical model for $X_1$, the total number of prosocial choices made with a partner present in this experiment.
+
+$$ X_1 \mid p_{\text{partner}} \sim \text{Binomial}(610, p_{\text{partner}}) $$
+
+
+#### 1B
+Test the hypothesis that $p_{\text{partner}} = 0.5$ versus the two-sided alternative.  Report a p-value.
+```{r}
+prob1b = pbinom(251, 610, 0.5) + (1 - pbinom(358, 610, 0.5))
+```
+
+
+#### 1C
+Create a graph that shows the sampling distribution of $X_1$ under the null hypothesis and indicates (with different colors and/or lines) how the p-value relates to the graph.
+```{r}
+gbinom(610, 0.5, scale=TRUE) + geom_vline(xintercept = 359, color = 'red', linetype = 'dashed') + geom_vline(xintercept = 251, color = 'red', linetype = 'dashed') + theme_bw()
+```
+
+
+#### 1D
+Interpret the results of the hypothesis test in context.
+
+Based on the results from the hypothesis test, there is very strong evidence(p = 1.4e-05, two-sided binomial test) that the chimpanzee in this experiment, with a partner, will make pro-social choices more than half the time in the long run as long as the experiment is under similar conditions.
+
+### 2
+
+Repeat the previous problem, but use the data for all trials **without** a partner for an assumed universal parameter $p_{\text{no partner}}$, using a statistical model for $X_2$, the total number of prosocial choices made without a partner present in the experiment.
+```{r}
+prob2 = chimpanzee %>% filter(partner == 'none') %>% mutate(sum_prosocial = sum(prosocial), sum_selfish = sum(selfish))
+```
+
+```{r}
+prob2b = pbinom(83, 180, 0.5) + (1 - pbinom(96, 180, 0.5))
+```
+
+```{r}
+gbinom(180, 0.5, scale=TRUE) + geom_vline(xintercept = 97, color = 'red', linetype = 'dashed') + geom_vline(xintercept = 83, color = 'red', linetype = 'dashed') + theme_bw()
+```
+
+Based on the results from the hypothesis test, there is moderate evidence(p = 0.3326, two-sided binomial test) that the chimpanzee in this experiment, without a partner, will make pro-social choices more than half the time in the long run as long as the experiment is under similar conditions.
+
+
+### 3
+
+State one criticism of the assumptions made for the previous two hypothesis tests where reality may differ from the assumptions, possibly leading to misleading conclusions.
+
+Based on the assumptions made for the previous two hypothesis tests, both were binary outcomes (categorized with two outcomes) and all trials were assumed to be independent. The criticisms are about the sample size and probability. First off, the two outcomes of pro-social and selfish did not have the same probability in either question one or two. Secondly, between both questions, the first had a much larger sample size, while and the second had a smaller sample size.
+
+### 4
+
+In a recent poll in the race for governor in Wisconsin,
+326 out of 679 likely voters responded that they would vote for the incumbent Tony Evers.
+Find a 95% confidence interval for the proportion of likely voters in Wisconsin who will vote for Tony Evers in the November 8 election.
+```{r}
+binom_se =  function(n, p){
+  return (sqrt( p*(1-p)/n))}
+
+binom_ci = function(est, se, conf=0.95){
+  z = qnorm(1 - (1 - conf)/2)
+  me = z * se
+  ci = est + c(-1,1)*me
+  return(ci)}
+```
+
+
+```{r}
+x = 326
+n = 679
+p_tilde = (x+2)/(n+4)
+p_tilde
+se = binom_se(n+4, p_tilde)
+se
+ci = binom_ci(p_tilde, se)
+round(ci, 3)
+```
+
+Interpret the confidence interval in context.
+
+> We are 95% confident that a likely voter would vote for the incumbent Tony Evers between 44.3% and 51.8% of the time.
+
+
+### 5
+
+In a psychological experiment,
+a reported psychic tries to guess the suit of the cards of a well-shuffled stack of cards which includes many decks shuffled together.
+You may assume that the suit of each card in order is equally likely to be any one of the four suits and that the suits of the cards are independent of each other.
+
+In guesses of the suits of 100 cards, the psychic correctly guesses the suit 29 times.
+Conduct a formal hypothesis test to examine the evidence that the psychic can guess the suit of the cards more often than expected.
+State a model, declare a test statistic, state hypotheses,
+calculate a one-sided p-value,
+and report the results in the context of the problem following the format presented in lecture notes.
+
+1. Model: $X \mid p \sim \text{Binomial}(n,p)$
+
+2. State hypotheses:
+
+$$
+H_0: p = 0.25 \\
+H_a: p > 0.25
+$$
+
+3. Test statistic is $X$. 
+
+4. If the null hypothesis is true, then
+
+$$
+X \sim \text{Binomial}(100,0.25)
+$$
+
+5. Outcomes greater than or equal to $X=29$ would provide evidence against $p=0.25$. The $\text{Binomial}(100,0.25)$ distribution has mean 25.
+
+```{r}
+p_value = 1 - pbinom(28, 100, 0.25)
+p_value
+```
+With a p-value of 0.2075, under a significance level of 0.05, we would fail to reject the null hypothesis that psychic was guessing randomly. There is evidence that the psychic can select the correct suite 25% of the time.

@@ -1,0 +1,475 @@
+---
+author: Michael Raffanti
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE,
+                      warning = FALSE, error = TRUE, fig.height = 3)
+library(tidyverse)
+library(kableExtra)
+library(broman)
+source("../../scripts/viridis.R")
+source("../../scripts/ggprob.R")
+theme_set(theme_minimal())
+```
+
+\newcommand{\E}{\mathsf{E}}
+\newcommand{\Var}{\mathsf{Var}}
+\newcommand{\SD}{\mathsf{SD}}
+\renewcommand{\prob}{\mathsf{P}}
+
+## Homework Assignment 7
+
+#### Due Saturday, November 5, 2022, at 11:59 PM
+
+
+## Problems
+
+### 1
+
+Let $X \sim \text{Normal}(100, 15)$
+so $\mu = 100$ and $\sigma = 15$.
+
+### 1A
+
+Find the values $x_1$ and $x_2$ such that $\prob(x_1 < X < x_2) = 0.9$ and $\mu - x_1$ is equal to $x_2 - \mu$.
+Display the values.
+Draw a graph showing the normal density with the area between $x_1$ and $x_2$ being shaded.
+```{r}
+mu = 100
+sigma = 15
+x2 = qnorm(0.9, 100, 15)
+x1 = 2*mu - x2
+x2
+x1
+pnorm(x2,mu,sigma) - pnorm(x1,mu,sigma)
+mu - x1 
+x2 - mu
+gnorm(100, 15) + geom_norm_fill(100, 15, a = x1, b = x2)
+```
+
+
+### 1B
+
+Repeat 1A for $\prob(x_1 < X < x_2) = 0.95$.
+```{r}
+mu = 100
+sigma = 15
+x2 = qnorm(0.95, 100, 15)
+x1 = 2*mu - x2
+x2
+x1
+pnorm(x2,mu,sigma) - pnorm(x1,mu,sigma)
+mu - x1 
+x2 - mu
+gnorm(100, 15) + geom_norm_fill(100, 15, a = x1, b = x2)
+```
+
+
+### 1C
+
+Repeat 1A for $\prob(x_1 < X < x_2) = 0.99$.
+```{r}
+mu = 100
+sigma = 15
+x2 = qnorm(0.99, 100, 15)
+x1 = 2*mu - x2
+x2
+x1
+pnorm(x2,mu,sigma) - pnorm(x1,mu,sigma)
+mu - x1 
+x2 - mu
+gnorm(100, 15) + geom_norm_fill(100, 15, a = x1, b = x2)
+
+```
+
+
+### 1D
+
+Find the z-scores for the values $x_2$ you found in the three previous parts: $z = (x - \mu) / \sigma$.
+Report these values.
+```{r}
+za=(119.2233 - 100)/15
+zb=(124.6728 - 100)/15
+zc=(134.8952 - 100)/15
+za
+zb
+zc
+```
+
+
+
+### 2
+
+Suppose that $X \sim \text{Normal}(100, 15)$.
+What is $\prob(80 < X < 110)$?
+Create a graph which lets you visualize this probability.
+```{r}
+pnorm(110, 100, 15) - pnorm(80, 100, 15)
+gnorm(100, 15) + geom_norm_fill(100, 15, a=80, b=110) + theme_minimal()
+```
+
+
+
+### 3
+
+The following code chunk graphs the probabilities of the $\text{Binomial}(1000, 0.37)$ distribution with bars of width one centered at the possible values of the random variable
+from the 0.001 to the 0.999 quantiles of the distribution.
+Bars at the 0.90 quantile and to the right are filled in a dark red color ("firebrick") and other values have the bars filled in gray.
+
+```{r}
+n = 1000
+p = 0.37
+
+prob3_df = tibble(
+  x = seq(qbinom(0.001, n, p), qbinom(0.999, n, p), 1),
+  prob = dbinom(x, n, p)
+)
+
+plot3 = ggplot(prob3_df, aes(x = x, y = prob)) +
+  geom_col(width = 1, color = "black", fill = "lightgray") +
+  geom_col(width = 1, color = "black", fill = "firebrick",
+           data = prob3_df %>% filter(x >= qbinom(0.90, n, p))) +
+  geom_hline(yintercept = 0) +
+  xlab("x") +
+  ylab("Probability") +
+  ggtitle("Binomial(1000, 0.37) Distribution")
+
+plot3
+```
+
+### 3A
+
+Find the mean $\mu$, the standard deviation $\sigma$, and the 0.90 quantile (call it $a_1$) of this binomial distribution.
+Calculate the z-scores of $a_1$ (call it `z1`)
+and the z-score of $a_2 = a_1 - 0.5$ (call it `z2`),
+which is the left end-point of the first red bar).
+A z-score of  value $x$ is calculated as $z = (x - \mu)/\sigma$.
+The z-score represents the number of standard deviations $x$ is above (positive) or below (negative) the mean.
+Display all calculated values.
+
+```{r}
+n = 1000
+p = 0.37
+mu = n*p
+sigma = sqrt(n*p*(1-p))
+a1 = qnorm(0.9, mu, sigma)
+a2 = a1 - 0.5
+z1 = (a1-mu)/sigma
+z2 = (a2-mu)/sigma
+n
+p
+mu
+sigma
+a1
+a2
+z1
+z2
+```
+
+
+
+### 3B
+
+Modify the plot by doing the following:
+
+- Add a normal density curve from a normal distribution where the mean $\mu$ and standard deviation $\sigma$ match those of this binomial distribution.
+- Shade under this normal density curve from $a_2 = a_1 - 0.5$ to the right the color "blue", using `alpha = 0.5` so that the underlying "firebrick" color can partially show through.
+The part of the graph where the colors overlap will show purple.
+
+```{r}
+plot3b = plot3 + geom_norm_density(mu = mu, sigma = sigma) + geom_norm_fill(mu, sigma, a=a2, alpha = 0.5, fill = "blue")
+plot3b
+```
+
+
+### 3C
+
+Find the exact binomial probability $\prob(X \ge a_1)$ where $a_1$ is the 0.90 quantile.
+(We would expect the probability to the right of the 0.90 quantile to be 0.10.
+But due to discreteness of the binomial distribution, some of the probability at $a_1$ is part of the top 0.10 and some is part of the bottom 0.90, so the probability to the right including everything at $a_1$ is larger than 0.10.)
+
+Compare this exact binomial value to two approximate areas under the dosplayed normal density: first, the area to the right of $a_1$, and second, the area to the right of $a_2 = a_1 - 0.5$.
+These areas are equal to the areas to the right of `z1` and `z2` under a standard normal density, respectively.
+
+For each of these normal areas,
+calculate the relative error: $|\text{normal area} - \text{exact probability}| / \text{exact probability}$,
+multiply by 100%,
+and round to one digit.
+Report these two absolute relative error percentages.
+**(Note: `abs(x)` is the absolute value of `x`.)**
+Which normal density probability is a better approximation of the true binomial distribution?
+
+
+```{r}
+q90_binom_z1 = qbinom(0.9, 1000, 0.37)
+binom_prob_z1 = pbinom(q90_binom_z1-z1, 1000, 0.37, lower=FALSE)
+q90_norm_z1 = qnorm(0.9, mu, sigma)
+norm_prob_z1 = pnorm(q90_norm_z1-z1, mu, sigma, lower=FALSE)
+relative_error_z1 = ((norm_prob_z1 - binom_prob_z1)/binom_prob_z1)*100
+round(relative_error_z1, 1)
+
+q90_binom_z2 = qbinom(0.9, 1000, 0.37)
+binom_prob_z2 = pbinom(q90_binom_z2-z2, 1000, 0.37, lower=FALSE)
+q90_norm_z2 = qnorm(0.9, mu, sigma)
+norm_prob_z2 = pnorm(q90_norm_z2-z2, mu, sigma, lower=FALSE)
+relative_error_z2 = ((norm_prob_z2 - binom_prob_z2)/binom_prob_z2)*100
+round(relative_error_z2, 1)
+```
+
+> z2 is a better approximation of the true distribution.
+
+
+
+### 4
+
+### 4A
+
+Create a tibble where each row corresponds to a binomial distribution with the following columns:
+
+- `n` for $n = 1000, 1005, 1010, 1015, \ldots, 25,000$
+- `p` equal to 0.37 for each row
+- `mu` equal to the mean
+- `sigma` equal to the standard deviation
+- `a` equal to the 0.90 quantile of the distribution
+- `z = (a - 0.5 - mu)/sigma`, the standardized z-score of the quantile - 0.5, applying a correction for continuity
+- `binom_prob` equal to $P(X \ge a)$, a right-tail probability for the distribution in each row, the exact binomial probability
+- `norm_prob` equal to the area to the right of `z` under a standard normal density curve (which is the same as the area to the right of `a - 0.5` under the normal density curve which matches moments with the binomial)
+- `abs_relative_error_pct` equal to `100*|norm_prob - binom_prob| / binom_prob|`
+
+*Note: We expect the probability of being at or to the right of the 0.90 quantile to be 0.10. However, for a discrete distribution such as the binomial, some of the probability at the 0.90 quantile is part of the upper 0.10 and the rest of part of the bottom 0.90. So, the probability at the 0.90 quantile or higher will typically be more than 0.10 by some extra amount due to the discreteness.*
+
+Parts of this question explore how the `z-score` of the 0.90 quantile and the accuracy of the normal approximation to the binomial distribution change as $n$ increases.
+
+
+Display all columns and the rows of this table for which $n$ is a multiple of 5000.
+**(Hint: `n %% 5000 == 0` is `TRUE` if and only if `n` is divisible by 5000.)**
+
+```{r}
+prob4a = tibble(n = seq(1000, 25000, 5), p = 0.37, mu = n*p, sigma = sqrt(n*p*(1-p)), a = qbinom(0.9, n, p), z = (a - 0.5 - mu)/sigma, binom_prob = 1 - pbinom(a-0.5, n, p), norm_prob = 1 - pnorm(a-0.5, mu, sigma), abs_relative_error_pct = abs(100*(norm_prob - binom_prob) / binom_prob))
+display = prob4a %>% filter(n %% 5000 == 0)
+display
+```
+
+
+
+### 4B
+
+Use a line plot to show the relationship between $n$ on the x axis and $z$ on the y axis.
+Add a smooth curve to highlight the trend.
+Add a horizontal red line with the z-score of the 0.90 quantile of the standard normal distribution.
+Describe the pattern you see.
+
+```{r}
+ggplot(prob4a, aes(x = n, y = z)) + geom_line() + geom_smooth(se=FALSE) + geom_hline(yintercept = 1.2815, color = "red")
+```
+
+> The pattern I observe is that the graph starts with strong growth in z-scores while n is increasing. However, the growth eventually slows around n=10000 and the growth in the z-scores in minimal.
+
+
+
+
+### 4C
+
+Plot the right tail probability `norm_prob` on the y axis versus `n` on the x axis.
+Add a red horizontal line at 0.10.
+
+> In this relationship, the trend is almost the exact opposite compared to 4B. From n-0 to n=10000 there is significant change in norm_prob, but from n=10000 to n=25000 these is very little change norm_prob.
+
+```{r}
+ggplot(prob4a, aes(x = n, y = norm_prob)) + geom_line() + geom_smooth(se=FALSE) + geom_hline(yintercept = 0.10, color="red")
+```
+
+
+
+### 4D
+
+Plot the absolute relative error versus $n$ with a line plot.
+
+```{r}
+ggplot(prob4a, aes(x = n, y = abs_relative_error_pct)) + geom_line() 
+```
+
+> There is a downward tend between abs_relative_error_pct and n displayed by the grpah. Similar to norm_prob, the biggest change in abs_relative_error_pct happens from n=0 to n=10000, and then it starts to flatten out.
+
+
+
+
+
+### 5
+
+#### 5A
+
+Suppose you are playing a coin flipping game with a friend, where you suspect the coin your friend provided is not a fair coin.  In fact, you think the probability the coin lands heads is less than 0.5.  To test this, you flip the coin 100 times and observe the coin lands heads 35 times.  If you assume the coin is fair (i.e., the probability of the coin landing heads is 0.5), what is the probability of observing 35 heads or fewer? 
+
+```{r}
+pbinom(35, 100, 0.5)
+```
+
+
+#### 5B
+
+Given the probability you computed in 5A, do you think observing the 35 heads in 100 tosses is evidence against the coin being fair?  Briefly explain your reasoning. 
+
+The probability of getting 35 or fewer heads out of 100 trials assuming the coin is very fair is very small sitting at around 0.1%. Therefore, I do believe that probability is evidence against the coin being fair. It would be alot more convincing that the coin was fair if the number of heads was higher and closer to 50 but it wasn't.
+
+### 6
+
+Suppose that a random variable $U$ is uniformly distributed between $a = 100 - 10\sqrt{3} \doteq `r myround(100 - 10*sqrt(3), 3)`$ and $b = 100 + 10\sqrt{3} \doteq `r myround(100 + 10*sqrt(3), 3)`$.
+For this distribution, $\E(U) = 100$ and $\SD(U) = 10$.
+
+Here is a plot of the density function.
+
+```{r}
+delta = 10*sqrt(3)
+a = 100 - delta
+b = 100 + delta
+
+u_dist = tibble(
+  u = c(a-1, a, a, b, b, b+1),
+  f = c(0, 0, 1/(b-a), 1/(b-a), 0, 0)
+)
+
+ggplot(u_dist, aes(x = u, y = f)) +
+  geom_line(color = "blue") +
+  geom_hline(yintercept = 0)
+
+```
+
+This code chunk will generate four random variables $U_1, \ldots, U_4$ from this uniform density, sort them, print the sample, and then print the mean, $\overline{U}$.
+
+```{r}
+## set the seed to keep the same values when reknitting
+set.seed(2022)
+
+u = runif(4, a, b) %>% sort()
+u
+mean(u)
+```
+
+The next chunk of code will repeat this random sampling process $B = 1,000,000$ times and save the sample means, using code form **purrr**.
+
+```{r}
+B = 1000000
+n = 4
+
+delta = 10*sqrt(3)
+a = 100 - delta
+b = 100 + delta
+
+prob6_df = tibble(
+  u_bar = map_dbl(1:B, ~mean(runif(n, a, b))))
+```
+
+### 6A
+
+Find and display the sample mean and standard deviation (use `sd()`) of the the generated sample means from the previous simulation.
+
+```{r}
+prob6a = prob6_df %>% mutate(mean = mean(u_bar), sd = sd(u_bar))
+```
+
+> What is your best guess for the true theoretical mean and standard deviation of $\overline{U}$ for sample size $n=4$?
+My best guess for the true theoretical mean and standard deviation is about 100 and 5 respectively.
+
+
+### 6B
+
+Make a density plot (using `geom_density()`) of the sampled means with a blue curve and `alpha = 0.5`.
+Overlay a red normal density curve with the same mean and standard deviation and `alpha = 0.5`.
+(Changing the `alpha` values makes the colors transparent and we will see purple when one curve is on top of the other.)
+
+```{r}
+ggplot(prob6a, aes(u_bar)) +
+  geom_density(color = "blue", alpha = 0.5) + geom_norm_density(mu = mean, sigma = sd, color = "red")
+```
+
+
+
+### 6C
+
+Compare $\prob(96 < \overline{U} < 104)$ (as estimated by the simulation and counting the number of simulated sample means between these end points)
+with the corresponding area under the normal density.
+What is the relative error between the true value by simulation and the estimate from the normal distribution?
+How does the graph in 6B support this calculation/
+
+```{r}
+redcurve = pnorm(104, mean, sd) - pnorm(96, mean, sd)
+prob6c = prob6a %>% filter(u_bar < 104 & u_bar > 96)
+bluecurve = 561371/B
+relative_error = ((redcurve-bluecurve)/bluecurve)*100
+```
+The relative error being only about 2.6% means that the red curve represented by the normal estimated distribution is only off by 2.6% when compared to the true observed distribution represented by the blue curve.
+
+
+### 6D
+
+Is the distribution of $\overline{U}$ approximated by a normal distribution to a high degree of accuracy with relative errors of the probabilities of intervals being less than 1 percent?
+
+The relative error percentage between the observed distribution and theoretical normal distribution is about 2.6% and is not less than 1%. Because of this we would not use the normal distribution to approximate the sampling distribution of the sample mean. Instead, we would stick with the observed distribution to do that.
+
+
+### 7
+
+Repeat the previous problem, but let $n=16$
+and compare the probability $\prob(98 < \overline{U} < 102)$ with the normal approximation in 7C.
+```{r}
+B = 1000000
+n = 16
+
+delta = 10*sqrt(3)
+a = 100 - delta
+b = 100 + delta
+
+prob7_df = tibble(
+  u_bar = map_dbl(1:B, ~mean(runif(n, a, b))))
+```
+
+### 7A
+
+Find and display the sample mean and standard deviation (use `sd()`) of the the generated sample means from the previous simulation.
+
+> What is your best guess for the true theoretical mean and standard deviation of $\overline{U}$ for sample size $n=16$?
+My best guess for the true theoretical mean and standard deviation is about 100 and 2.5 respectively.
+
+```{r}
+prob7a = prob7_df %>% mutate(mean = mean(u_bar), sd = sd(u_bar))
+```
+ 
+
+### 7B
+
+Make a density plot (using `geom_density()`) of the sampled means with a blue curve and `alpha = 0.5`.
+Overlay a red normal density curve with the same mean and standard deviation and `alpha = 0.5`.
+(Changing the `alpha` values makes the colors transparent and we will see purple when one curve is on top of the other.)
+
+```{r}
+ggplot(prob7a, aes(u_bar)) +
+  geom_density(color = "blue", alpha = 0.5) + geom_norm_density(mu = mean, sigma = sd, color = "red")
+```
+
+
+### 7C
+
+Compare $\prob(98 < \overline{U} < 102)$ (as estimated by the simulation and counting the number of simulated sample means between these end points)
+with the corresponding area under the normal density.
+What is the relative error between the true value by simulation and the estimate from the normal distribution?
+How does the graph in 7B support this calculation/
+
+```{r}
+redcurve_7 = pnorm(102, mean, sd) - pnorm(98, mean, sd)
+prob7c = prob7a %>% filter(u_bar < 102 & u_bar > 98)
+bluecurve_7 = 573339/B
+relative_error_7 = abs(((redcurve_7-bluecurve_7)/bluecurve_7)*100)
+```
+
+
+
+### 7D
+
+Is the distribution of $\overline{U}$ approximated by a normal distribution to a high degree of accuracy with relative errors of the probabilities of intervals being less than 1 percent?
+
+
+> The relative error percentage between the observed distribution and theoretical normal distribution is about much greater than 1% Because of this we would not use the normal distribution to approximate the sampling distribution of the sample mean. Instead, we would stick with the observed distribution to do that.
+

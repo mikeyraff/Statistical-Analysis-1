@@ -1,0 +1,251 @@
+---
+title: "Assignment 2"
+author: "YOUR NAME HERE"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, error = TRUE,
+                      fig.height = 4)
+library(tidyverse)
+library(lubridate)
+library(viridisLite)
+```
+
+- Execute the code in the chunk below to read in the data.
+    - If there is an error, check to see if there is a `data` directory two directories up that contains the data file.
+- Post questions on Discord, visit the Learning Center, or attend office hours if you have questions.
+    
+```{r read-data, echo = FALSE}
+## The echo = FALSE argument to this chunk
+##   means that the code will not appear in the output
+##   but the code will run so that the data is in the session
+
+## Read Lake Monona data
+## Change the order or ff_cat from alphabetical to calendar order
+monona = read_csv("../../data/lake-monona-winters-2022.csv") %>% 
+  mutate(ff_cat = reorder(ff_cat, ff_x))
+```
+
+### Problems
+
+### 1
+
+The following code makes a histogram of the `duration` variable in the Lake Monona data set.
+
+```{r problem1}
+ggplot(monona, aes(x=duration)) +
+  geom_histogram(boundary = 0, binwidth = 10,
+                 color = "black", fill = "white")
+```
+
+In approximately how many winters was the total duration  where Lake Monona was at least 50% covered with ice between 40 to 70 days?
+
+### Response
+
+11 Winters
+
+
+
+### 2
+
+Modify the code below so that:
+
+- one of the bin boundaries is at 70 days
+- the width of each bin is 5 days
+- the fill color is "cyan"
+- the color outlining the bars is "red"
+- the x label says "Days Closed with Ice"
+- the y label says "Total"
+- there is a title with words of your choosing that describe the figure
+
+```{r problem2}
+ggplot(monona, aes(x = duration)) +
++     geom_histogram(boundary = 70, binwidth = 5, color = "red", fill = "cyan") + xlab("Days Closed with Ice") + ylab("Total") + ggtitle("Lake Monona Closed Days")
+```
+
+
+
+
+
+### 3
+
+Code in the next chunk makes a scatter plot that shows how the variable `duration` changes with time (using `year1`).
+
+```{r problem3}
+ggplot(monona, aes(x = year1, y = duration)) +
+  geom_point() +
+  geom_smooth(se=FALSE)
+```
+
+- What does the line of code `geom_smooth(se=FALSE)` do?  (Explain what it does on the graphic; you don't need to explain details of the method.)
+
+### Response
+
+geom_smooth creates a curved trend line for the data points. Without the (se=FALSE) there would be a ribbon to represent uncertainty in the true value of the estimated trend line, but that command gets rid of the ribbon so it looks clearer.
+
+
+
+- How long was Lake Monona closed with closed with ice in a typical year near 1875 (i.e., what is the approximate value of the smooth curve around 1875)?
+
+### Response
+
+Approximately 118 Days it was closed
+
+
+
+- How long was Lake Monona closed with ice in a typical year near 2000 (i.e., what is the approximate value of the smooth curve around 2000)?
+
+### Response
+
+Approximately 90 Days it was closed
+
+
+
+
+### 4
+
+Modify the code in the following chunk so that:
+
+- There is a box plot displaying the distribution of the days frozen by ice  
+- The box plot fill color is "yellow"
+- The color of the edges of the box plot is "magenta"
+- There is a more descriptive y-axis label
+- There is an informative plot title
+
+```{r problem4}
+ggplot(monona, aes(y=duration)) + geom_boxplot(fill = "yellow", color = "magenta") + ylab("Number of Days Frozen") + ggtitle("The Distribution of the Days frozen by Ice each Year")
+```
+
+- What is the approximate median number of days Lake Monona has been closed with ice?  
+
+### Response
+
+The median amount of days is about 105 Days
+
+
+
+
+### 5
+
+- Write code to create a bar graph which displays the number of winters when the first freeze occured in each half-month period of time as recorded in the variable `ff_cat`. Choose your own colors if you do not like the default values. Make sure that your plot:
+  - has an informative title and subtitle
+  - has informative axis labels
+
+```{r}
+ggplot(monona, aes(x=ff_cat)) + geom_bar(fill = "red", color = "pink") + xlab("Half Month Periods") + ylab("Total") + ggtitle("Number of winters when the first freeze occured per half month", subtitle = "1855-2022")
+```
+
+
+
+### 6
+
+- Briefly explain why you needed to use the command `geom_bar()` and not `geom_col()` to make the plot in the previous problem.
+
+We used geom_bar because only the x-axis was relevant whereas the y was just tracking the count of each part of the x-axis. If we wanted the heights of the bars to represent values in the data ie. aes(y = "something") then that's when we would use geom_col.
+
+
+
+### 7
+
+- The following chunk creates a scatter plot with `ff_x` on the x axis and `duration` on the y axis, with points colored by `period50`.
+The variable `ff_x` is a numerical coding of the first freeze date, counting days after June 30.
+For context, December 27 is 180 days after June 30.
+The default color scheme is changed to `viridis` which is friendlier to most people with various forms of color blindness.
+The command `geom_smooth(method = "lm", se = FALSE)` adds a straight line instead of a curve to the plot (that's the `method = "lm"` argument)
+and because we specified `period50` as a grouping variable by mapping it to the color aesthetic, separate lines are added for each group.
+
+- Add code to add a plot title and to provide informative axis labels.
+Following examples from lecture notes,
+change the title of the color legend to say "Time Period" instead of "period50".
+
+```{r}
+ggplot(monona, aes(x = ff_x, y = duration, color = period50)) +
+    geom_point() +
+    geom_smooth(se = FALSE, method = "lm") +
+    scale_color_viridis_d() + xlab("Number of Days Since June 30th to the First Freeze") + ylab("Number of Days Frozen") + ggtitle("Number of Days Frozen from each 50 year period") + guides(color = guide_legend(title = "Time Period"))
+```
+
+
+
+### 8
+
+- The graph from the previous problem could be used to predict the total freeze duration of Lake Monona based on the date of the first freeze when the surface of Lake Monona is first at least 50% covered by ice.
+Suppose that the date of the first freeze in some year was December 27, which is 180 days after June 30.
+Based on an examination of the graph,
+briefly explain how your prediction of the total duration that Lake Monona is closed by ice would differ if the winter was in the 1870s versus the present?
+
+When compared to a year like 1870, which is part of the time period labeled with purple, the other time periods can expect lesser number of days the lake remained at least 50% frozen. The best fit line for the time period that 1870 falls under is higher up than the others meaning at the 180 day mark we can expect the lake to be frozen for longer in 1870.
+
+### 9
+
+- The next four chunks contain partial code to make separate graphs to examine the distribution of the first day of a winter season that Lake Monona is at least 50% closed by ice (coded as a numerical variable which counts days after June 30 for each of the four periods time periods encoded in `period50`.
+  - Separate histograms "wrapped" to make a linear sequence of plots broken over one or more rows.
+  - Separate histograms arranged to be stacked and using the set of axes.
+  - Side-by-side box plots.
+  - Density plots overlaid on the same graph.
+- For each chunk, complete the code to produce the desired graph. Add informative axis labels and graph titles.
+
+```{r 9A}
+## wrapped histograms
+##
+## change the binwidth to an appropriate value
+## add axis labels and a title
+## complete the argument(s) to facet_wrap()
+ggplot(monona, aes(x = ff_x)) +
+  geom_histogram(center = 180, binwidth = 5,
+                 color = "black", fill = "blue") + 
+  xlab("Days after June 30th until the Lake Freezes") +
+  ylab("Count") +
+  ggtitle("The Number of Days for the First Freeze")  +
+  facet_wrap(vars(period50))
+```
+
+
+
+```{r 9B, fig.height = 6}
+## histograms, stacked
+##
+## change the binwidth to an appropriate value
+## add axis labels and a title
+## complete the argument(s) to facet_grid()
+## 
+ggplot(monona, aes(x = ff_x)) + geom_histogram(center = 180, binwidth = 5, color = "black", fill = "blue") + xlab("Days after June 30th until the Lake Freezes") + ylab("Count") + ggtitle("The Number of Days for the First Freeze") + facet_grid(rows = vars(period50))
+```
+
+```{r 9C}
+## side by side boxplots
+##
+ggplot(monona, aes(x = period50, y = duration)) + geom_boxplot(fill = "blue", color = "black") + xlab("Period") + ylab("Total Days Closed") + ggtitle("Lake Monona Freeze Duration, 1855-2022")
+```
+
+```{r 9D}
+## Overlapping density plots
+## You want a different color for each group of period50
+## Add an appropriate aesthetic mapping
+##
+ggplot(monona, aes(x = ff_x, color = period50)) +  geom_density() +  geom_hline(yintercept = 0) + xlab("Total Days Frozen") + ylab("Density") + ggtitle("Lake Monona Freeze Duration, 1855-2022")
+```
+
+
+
+### 10
+
+From the graphs in the previous problem,
+provide pros and cons for each.
+Which one or ones make it easiest to compare features about how the distribution of dates that Lake Monona is closed by ice varies among these time periods?
+
+- **Wrapped Histograms**:
+  - Pros: easy to compare just one period with itself, easy to compare obvious differences between the data from different periods, use the same y-axis 
+  - Cons: presents a lot at once, makes each graph smaller, harder to tell differences between different periods in regards to count because it is visually small
+- **Stacked Histograms**:
+  - Pros: utilize the same x-axis across all four grpahs, easier to compare the x-axis between different periods, easier to compare in across one period
+  - Cons: obnoxiously stretches the graphs making them harder to interpret, harder to compare heights from different periods, harder to compare y-axis in different periods
+- **Side-by-side Box Plots**:
+  - Pros: comparing multiple distribtuions to each other with the same scale, all data one graph, a bit simpler, really nice for finding median and outliers and quartiles
+  - Cons: not as easy to see the distrubtion within each period, too simple if trying to study specific pieces of data, doesn't show many trends between the periods
+- **Overlayed Density Plots**:
+  - Pros: colors differences make it really nice to compare, easy to compare peaks of the most dense times in each period, curves in each plot show clear increases and decreases
+  - Cons: the high amount of overlaps makes it a little overwhelming, reading level of density takes an extra step to find the amount of days
+  
+
